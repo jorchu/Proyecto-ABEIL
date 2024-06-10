@@ -16,6 +16,7 @@ int in1 = 6;
 int in2 = 7;
 int in3 = 8;
 int in4 = 9;
+
 int ldr1=A0;
 int ldr2=A1;
 int ldr3=A2;
@@ -44,6 +45,8 @@ bool manual = true;
 bool carga = false;
 bool libre = false;
 
+bool moviendo = false;
+
 short subiendo = 0;
 short girando = 0;
 
@@ -54,7 +57,11 @@ float iterPower = 0;
 int ciclos = 0;
 int dataCicle = 0;
 
-double mayorDistancia[2];
+double recorrido[50][2]; // Distancia - Dirección
+int pasoRecorrido = 0;
+
+
+double mayorDistancia[2]; // Distancia - Dirección
 double puntoDeCarga[2] = {0, 0};
 
 void setup() {
@@ -99,11 +106,11 @@ void loop() {
   float busvoltage = 0;
   float current_mA = 0;
   float loadvoltage = 0;
-  float power_mW = 0;
+  float power_mW  = 0;
 
   bool parar = false;
   /*
-  Serial.print("P="); Serial.print(power_mW); Serial.println("mW | ");
+  Serial.print("P="); Serial.print(power_mW) ; Serial.println("mW | ");
   Serial.print("Pm="); Serial.print(current_mA); Serial.println("mW | ");
   Serial.print("Gen="); Serial.print(shuntvoltage); Serial.print("mW");*/
 
@@ -130,9 +137,9 @@ void loop() {
       loadvoltage = 0;
     }
 
-    power_mW = loadvoltage * current_mA; //ina219.getPower_mW();
-    iterPower += power_mW;
-    totalPower += power_mW;
+    power_mW  = loadvoltage * current_mA; //ina219.getPower_mW( );
+    iterPower += power_mW; 
+    totalPower += power_mW; 
     dataCicle += 1;
 
     if (dataCicle == 10)
@@ -141,7 +148,7 @@ void loop() {
       iterPower = 0;
       dataCicle = 0;
     }
-    String sendD = "P=" + String(power_mW) + "mW | Pm=" + String(meanPower) + "mW | Gen=" + totalPower + "mW";
+    String sendD = "P=" + String(power_mW)  + "mW | Pm=" + String(meanPower) + "mW | Gen=" + totalPower + "mW";
     Serial.println(sendD);
 
 
@@ -284,55 +291,31 @@ void loop() {
   }
   else if (libre)
   {
-    automatic();
+    obtenerPuntoDeCarga(power_mW, pasoRecorrido);
+    if (!moviendo)
+    {
+      compararDistancias(servDist);
+      movimiento(mayorDistancia[1]);
+
+      recorrido[pasoRecorrido][1] = mayorDistancia[1];
+      recorrido[pasoRecorrido][0] = mayorDistancia[0];
+      
+      moviendo = true;
+      pasoRecorrido += 1;
+    }
+
+    else
+    {
+      if (obtenerDistancia() > 10)
+      {
+        dcparo();
+        moviendo = false;
+      }
+    }
+
   }
-
-
-
-
 }
   
-
-void alante()
-{
-  digitalWrite(in1, HIGH);
-  digitalWrite(in2, LOW);
-  digitalWrite(in3, HIGH);
-  digitalWrite(in4, LOW); 
-}
-void atras()
-{
-  digitalWrite(in1, LOW);
-  digitalWrite(in2, HIGH); 
-  digitalWrite(in3, LOW);
-  digitalWrite(in4, HIGH); 
-}
-
-void izquierda()
-{
-   digitalWrite(in1, LOW);
-   digitalWrite(in2, HIGH); 
-   digitalWrite(in3, HIGH);
-   digitalWrite(in4, LOW); 
-}
-
-void derecha()
-{
-   digitalWrite(in1, HIGH);
-   digitalWrite(in2, LOW); 
-   digitalWrite(in3, LOW);
-   digitalWrite(in4, HIGH); 
-}
-
-
-void dcparo(){
-
-   digitalWrite(in1, HIGH);
-   digitalWrite(in2, HIGH); 
-   digitalWrite(in3, HIGH);
-   digitalWrite(in4, HIGH); 
-}
-
 
 void servito()
 {
@@ -377,6 +360,7 @@ int obtenerDistancia()
 
 void compararDistancias(Servo servo)
 {
+
   mayorDistancia[0] = 0;
   for (int pos = 0; pos <= 180; pos += 90)
   {
@@ -393,50 +377,94 @@ void compararDistancias(Servo servo)
 
 }
 
-//Revisar
-void movimiento(int direc)
+
+void obtenerPuntoDeCarga(float potencia, int pos)
 {
-    if (direc == 1)
-    {
-      alante();
-    } 
-    else if (direc == 2)
-    {
-      derecha();
-      delay(600);
-      dcparo();
-      
-      alante();
-    } 
-    else if (direc == 0)
-    {
-      
-      izquierda();
-      delay(600);
-      dcparo();
 
-      alante();
-    }
-    delay(5000);
-    dcparo();
-
-}
-
-void automatic()
-{
-  compararDistancias(servDist);
-  movimiento(mayorDistancia[1]);
-}
-
-
-void obtenerPuntoDeCarga(float potencia, int time)
-{
-  int pos = time * 10; // NOOO
   if (potencia > puntoDeCarga[0])
   {
     puntoDeCarga[0] = potencia;
     puntoDeCarga[1] = pos;
   }
   
+}
+
+
+void goBack(int paso)
+{
+  for (int i = paso-1; paso != 0; i--)
+  {
+    //Ya se pensará
+
+  }
+}
+
+//Revisar
+void movimiento(int direc)
+{
+  if (direc == 1)
+  {
+    alante();
+  } 
+  else if (direc == 2)
+  {
+    derecha();
+    delay(600);
+    dcparo();
+      
+    alante();
+  } 
+  else if (direc == 0)
+  {
+    izquierda();
+    delay(600);
+    dcparo();
+
+    alante();
+  }
+}
+
+
+
+
+
+void alante()
+{
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW); 
+}
+void atras()
+{
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH); 
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH); 
+}
+
+void izquierda()
+{
+   digitalWrite(in1, LOW);
+   digitalWrite(in2, HIGH); 
+   digitalWrite(in3, HIGH);
+   digitalWrite(in4, LOW); 
+}
+
+void derecha()
+{
+   digitalWrite(in1, HIGH);
+   digitalWrite(in2, LOW); 
+   digitalWrite(in3, LOW);
+   digitalWrite(in4, HIGH); 
+}
+
+
+void dcparo(){
+
+   digitalWrite(in1, HIGH);
+   digitalWrite(in2, HIGH); 
+   digitalWrite(in3, HIGH);
+   digitalWrite(in4, HIGH); 
 }
 
